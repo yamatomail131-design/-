@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>勉強スケジュール管理 Ultimate v3.8</title>
+
+<!-- ★PWA用の設定ファイルを指定 -->
+<link rel="manifest" href="./manifest.json">
+<!-- iOS用のアイコン指定 -->
+<link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2232/2232688.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+<style>
+body{font-family:sans-serif;background:#f1f5f9;margin:0;padding:15px;color:#334155}
+.container{max-width:1400px;margin:auto}
+h1{font-size:24px;text-align:center;margin-bottom:20px}
+h2{font-size:18px;margin-top:0;margin-bottom:12px;border-bottom:2px solid #e2e8f0;padding-bottom:6px}
+.card{background:#fff;border-radius:16px;padding:16px;margin-bottom:16px;box-shadow:0 2px 8px rgba(0,0,0,.05)}
+input,select,button,textarea{width:100%;padding:10px;box-sizing:border-box;margin-top:6px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px}
+button{background:#10b981;color:#fff;border:none;font-weight:bold;cursor:pointer;transition:background 0.2s}
+button:hover{background:#059669}
+.smallBtn{width:auto;padding:6px 12px;font-size:12px;margin-right:4px}
+.dangerBtn{background:#ef4444}
+.dangerBtn:hover{background:#dc2626}
+.material,.task,.exam{border:1px solid #e2e8f0;padding:12px;border-radius:8px;margin-top:8px;background:#f8fafc}
+.progress{height:18px;background:#e5e7eb;border-radius:999px;overflow:hidden;margin-top:8px}
+.progressBar{height:100%;background:#10b981;width:0%;transition:width 0.3s}
+.calendar-header{display:flex;justify-content:between;align-items:center;margin-bottom:12px;gap:8px}
+.calendar-title{font-size:18px;font-weight:bold;margin:0;flex-grow:1}
+.calBtn{width:auto;padding:6px 12px;font-size:13px;margin-top:0;background:#64748b}
+.calBtn:hover{background:#475569}
+.calendar{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:10px}
+.day{background:#94a3b8;color:#fff;padding:6px;text-align:center;font-weight:bold;border-radius:4px;font-size:12px}
+.cell{min-height:80px;border:1px solid #e2e8f0;border-radius:6px;padding:4px;font-size:11px;background:#fff;display:flex;flex-direction:column;justify-content:flex-start}
+.cell-blank{background:#f1f5f9;border:none}
+.cell strong{margin-bottom:4px;display:block;color:#64748b}
+.cell.today-cell{border:2px solid #10b981;background:#f0fdf4}
+.overdue{color:#ef4444;font-weight:bold}
+.task-item{display:flex;align-items:center;gap:8px;margin-top:4px}
+.task-item input{width:auto;margin:0}
+.range-group{display:flex;gap:8px;align-items:center;margin-top:6px}
+.range-group input{margin-top:0}
+.update-group{display:flex;gap:4px;align-items:center;margin-top:8px}
+.update-group input{width:80px;margin-top:0;padding:4px 6px}
+.update-group button{width:auto;padding:5px 10px;font-size:12px;margin-top:0}
+
+@media(min-width:769px){
+  .grid{display:grid;grid-template-columns:7fr 3fr;gap:16px;align-items:start}
+  .calendar-header{display:flex;}
+}
+@media(max-width:768px){
+  .grid{display:flex;flex-direction:column}
+  body{padding:10px}
+  .cell{min-height:65px;font-size:9px}
+  .calendar-header{flex-wrap:wrap;}
+}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>📚 勉強スケジュール管理 Ultimate v3.8</h1>
+
+<!-- 全体進捗 -->
+<div class="card">
+<h2>全体進捗 <span id="progressText">0</span>%</h2>
+<div class="progress"><div id="progressBar" class="progressBar"></div></div>
+</div>
+
+<div class="grid">
+<!-- 左側 -->
+<div>
+<div class="card">
+<div class="calendar-header">
+<div class="calendar-title" id="calendarTitle"></div>
+<button class="calBtn" onclick="prevMonth()">◄ 前月</button>
+<button class="calBtn" onclick="toToday()" style="background:#10b981">今日</button>
+<button class="calBtn" onclick="nextMonth()">次月 ▶</button>
+</div>
+<div id="calendar" class="calendar"></div>
+</div>
+
+<div class="card">
+<h2>今日のタスク</h2>
+<div id="tasks"></div>
+</div>
+</div>
+
+<!-- 右側 -->
+<div>
+<div class="card">
+<h2>教材登録</h2>
+<label style="font-size:12px; color:#64748b;">教科</label>
+<select id="subject">
+<option>数学</option><option>英語</option><option>国語</option><option>物理</option><option>化学</option><option>生物</option><option>地学</option><option>日本史</option><option>世界史</option><option>地理</option><option>情報</option>
+</select>
+<input id="material" placeholder="教材名">
+
+<label style="font-size:12px; color:#64748b; margin-top:8px; display:block;">進捗の単位</label>
+<select id="unit" onchange="updatePlaceholders()">
+<option value="ページ">ページ (P.)</option>
+<option value="単語">単語 (語)</option>
+<option value="例題">例題 (ex.)</option>
+<option value="章">章 (Ch.)</option>
+<option value="問">問 (Q.)</option>
+</select>
+
+<label style="font-size:12px; color:#64748b; margin-top:8px; display:block;">目標の範囲指定</label>
+<div class="range-group">
+  <input id="startRange" type="number" placeholder="開始 ページ">
+  <span>～</span>
+  <input id="endRange" type="number" placeholder="終了 ページ">
+</div>
+
+<label style="font-size:12px; color:#64748b; margin-top:8px; display:block;">目標達成までの期間</label>
+<select id="deadlineDuration">
+<option value="1">1ヶ月後までに終わらせる</option>
+<option value="2">2ヶ月後までに終わらせる</option>
+<option value="3">3ヶ月後までに終わらせる</option>
+<option value="4">4ヶ月後までに終わらせる</option>
+<option value="5">5ヶ月後までに終わらせる</option>
+<option value="6">6ヶ月後までに終わらせる</option>
+<option value="12">1年後までに終わらせる</option>
+</select>
+<button onclick="addMaterial()" style="margin-top:12px;">教材登録</button>
+</div>
+
+<div class="card">
+<h2>教材一覧</h2>
+<div id="materials"></div>
+</div>
+
+<div class="card">
+<h2>テスト管理</h2>
+<input id="examName" placeholder="テスト名">
+<input id="examDate" type="date">
+<button onclick="addExam()">追加</button>
+<div id="exams"></div>
+</div>
+
+<div class="card">
+<h2>学習時間</h2>
+<input id="studyMinutes" type="number" placeholder="今日の学習時間(分)">
+<button onclick="saveStudyTime()">記録</button>
+<p>累計学習時間: <span id="totalMinutes">0</span>分</p>
+</div>
+
+<div class="card">
+<h2>データ管理・バックアップ</h2>
+<button onclick="exportData()" style="background:#64748b; margin-bottom: 8px;">JSONデータ出力</button>
+<textarea id="backup" rows="3" placeholder="ここに出力データが表示されます"></textarea>
+<button onclick="resetAllData()" class="dangerBtn" style="margin-top:12px;">⚠️ アプリの全データを初期化する</button>
+</div>
+</div>
+</div>
+</div>
+
+<script>
+let materials=JSON.parse(localStorage.getItem('materials')||'[]');
+let tasks=JSON.parse(localStorage.getItem('tasks')||'[]');
+let exams=JSON.parse(localStorage.getItem('exams')||'[]');
+let totalMinutes=parseInt(localStorage.getItem('totalMinutes')||'0');
+
+let currentDisplayDate = new Date();
+
+document.getElementById('totalMinutes').textContent=totalMinutes;
+
+// ★PWAのサービスワーカー登録処理
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js')
+    .then(() => console.log('Service Worker Registered'))
+    .catch((err) => console.error('Service Worker Failed', err));
+}
+
+function save(){
+ localStorage.setItem('materials',JSON.stringify(materials));
+ localStorage.setItem('tasks',JSON.stringify(tasks));
+ localStorage.setItem('exams',JSON.stringify(exams));
+}
+
+function formatDate(dateObj) {
+  return dateObj.getFullYear() + '-' + String(dateObj.getMonth()+1).padStart(2,'0') + '-' + String(dateObj.getDate()).padStart(2,'0');
+}
+
+function updatePlaceholders() {
+  const unit = document.getElementById('unit').value;
+  document.getElementById('startRange').placeholder = `開始 ${unit}`;
+  document.getElementById('endRange').placeholder = `終了 ${unit}`;
+}
+
+function addMaterial(){
+ const subject=document.getElementById('subject').value;
+ const material=document.getElementById('material').value;
+ const unit=document.getElementById('unit').value;
+ const startRange=parseInt(document.getElementById('startRange').value);
+ const endRange=parseInt(document.getElementById('endRange').value);
+ const durationMonths=parseInt(document.getElementById('deadlineDuration').value);
+ 
+ if(!material||isNaN(startRange)||isNaN(endRange)||!durationMonths||startRange > endRange) return;
+
+ const totalUnits = endRange - startRange + 1;
+
+ const todayObj = new Date();
+ todayObj.setHours(0,0,0,0);
+ 
+ const targetObj = new Date(todayObj);
+ targetObj.setMonth(todayObj.getMonth() + durationMonths);
+ 
+ const deadlineStr = formatDate(targetObj);
+
+ const newMaterial = {subject,material,unit,startRange,endRange,pages:totalUnits,done:0,deadline:deadlineStr,perDay:0};
+ materials.push(newMaterial);
+
+ reallocateTasks(materials.length - 1);
+ 
+ document.getElementById('material').value = '';
+ document.getElementById('startRange').value = '';
+ document.getElementById('endRange').value = '';
+ 
+ save(); 
+ renderAll();
+}
+
+function reallocateTasks(mIdx) {
+  const m = materials[mIdx];
+  const todayObj = new Date();
+  todayObj.setHours(0,0,0,0);
+  const todayStr = formatDate(todayObj);
+
+  const tomorrowObj = new Date(todayObj);
+  tomorrowObj.setDate(todayObj.getDate() + 1);
+
+  const deadlineObj = new Date(m.deadline);
+  deadlineObj.setHours(0,0,0,0);
+
+  tasks = tasks.filter(t => !(t.material === m.material && t.date > todayStr));
+
+  const remainingUnits = m.pages - m.done;
+  if (remainingUnits <= 0) return;
+
+  const msDiff = deadlineObj - tomorrowObj;
+  const remainingDays = Math.max(0, Math.ceil(msDiff / 86400000) + 1);
+
+  const nextStartRange = m.startRange + m.done;
+
+  if (remainingDays > 0) {
+    const newPerDay = Math.ceil(remainingUnits / remainingDays);
+    m.perDay = newPerDay;
+
+    for (let i = 0; i < remainingDays; i++) {
+      const d = new Date(tomorrowObj);
+      d.setDate(tomorrowObj.getDate() + i);
+      const dateStr = formatDate(d);
+
+      const currentStart = nextStartRange + (i * newPerDay);
+      const currentEnd = Math.min(m.endRange, currentStart + newPerDay - 1);
+
+      if (currentStart <= m.endRange) {
+        let prefix = m.unit === 'ページ' ? 'P.' : '';
+        tasks.push({
+          subject: m.subject,
+          material: m.material,
+          text: `${m.material} ${prefix}${currentStart}～${currentEnd}${m.unit === 'ページ' ? '' : m.unit}`,
+          date: dateStr,
+          done: false
+        });
+      }
+    }
+  } else {
+    tasks = tasks.filter(t => !(t.material === m.material && t.date === todayStr));
+    let prefix = m.unit === 'ページ' ? 'P.' : '';
+    tasks.push({
+      subject: m.subject,
+      material: m.material,
+      text: `${m.material} ${prefix}${nextStartRange}～${m.endRange}${m.unit === 'ページ' ? '' : m.unit}`,
+      date: todayStr,
+      done: false
+    });
+    m.perDay = remainingUnits;
+  }
+}
+
+function toggleTask(i){
+ tasks[i].done=!tasks[i].done;
+ 
+ const mIdx = materials.findIndex(m => m.material === tasks[i].material);
+ if(mIdx !== -1){
+   const mTasks = tasks.filter(t => t.material === materials[mIdx].material);
+   const doneCount = mTasks.filter(t => t.done).length;
+   materials[mIdx].done = Math.min(materials[mIdx].pages, doneCount * materials[mIdx].perDay);
+   reallocateTasks(mIdx);
+ }
+ 
+ save();
+ renderAll();
+}
+
+function carryOver(){
+ const now = new Date();
+ const todayStr = formatDate(now);
+ 
+ tasks.forEach(t=>{
+   if(!t.done && t.date < todayStr){
+     t.date = todayStr;
+   }
+ });
+}
+
+function deleteMaterial(i){
+ if(!confirm("この教材と関連するタスクを削除しますか？")) return;
+ const m=materials[i];
+ materials.splice(i,1);
+ tasks=tasks.filter(t=>t.material!==m.material);
+ save();renderAll();
+}
+
+function deleteExam(i){
+ if(!confirm("このテスト予定を削除しますか？")) return;
+ exams.splice(i,1);
+ save();renderAll();
+}
+
+function resetAllData(){
+ if(confirm("【警告】すべての学習記録、教材、スケジュールが完全に消去されます。本当によろしいですか？")){
+   localStorage.clear();
+   alert("データを初期化しました。ページを再読み込みします。");
+   location.reload();
+ }
+}
+
+function addProgress(i){
+ const m = materials[i];
+ const amountToAdd = m.perDay || 1;
+ m.done = Math.min(m.pages, m.done + amountToAdd);
+
+ const now = new Date();
+ const todayStr = formatDate(now);
+ const todayTask = tasks.find(t => t.material === m.material && t.date === todayStr);
+ if(todayTask) todayTask.done = true;
+
+ reallocateTasks(i);
+ save();
+ renderAll();
+}
+
+function updateDirectProgress(i) {
+  const m = materials[i];
+  const inputEl = document.getElementById(`directInput-${i}`);
+  const targetValue = parseInt(inputEl.value);
+
+  if(isNaN(targetValue) || targetValue < m.startRange || targetValue > m.endRange) {
+    alert(`開始から終了までの正しい数値を入力してください（${m.startRange}～${m.endRange}）`);
+    return;
+  }
+
+  m.done = targetValue - m.startRange + 1;
+  
+  const now = new Date();
+  const todayStr = formatDate(now);
+  tasks.forEach(t => {
+    if(t.material === m.material && t.date === todayStr) {
+      t.done = true;
+    }
+  });
+
+  reallocateTasks(i);
+
+  inputEl.value = '';
+  save();
+  renderAll();
+}
+
+function addExam(){
+ const name=document.getElementById('examName').value;
+ const date=document.getElementById('examDate').value;
+ if(!name || !date) return;
+ exams.push({name,date});
+ document.getElementById('examName').value='';
+ document.getElementById('examDate').value='';
+ save();
+ renderAll();
+}
+
+function saveStudyTime(){
+ totalMinutes+=parseInt(document.getElementById('studyMinutes').value||0);
+ localStorage.setItem('totalMinutes',totalMinutes);
+ document.getElementById('totalMinutes').textContent=totalMinutes;
+ document.getElementById('studyMinutes').value = '';
+}
+
+function exportData(){
+ document.getElementById('backup').value=JSON.stringify({materials,tasks,exams,totalMinutes},null,2);
+}
+
+function renderTasks(){
+ const el=document.getElementById('tasks');
+ el.innerHTML='';
+
+ const now = new Date();
+ const todayStr = formatDate(now);
+ const todayTasks = tasks.filter(t => t.date === todayStr);
+
+ todayTasks.forEach(t=>{
+   const idx=tasks.indexOf(t);
+   el.innerHTML+=`
+   <div class='task' style='opacity:${t.done?0.6:1}'>
+     <label class="task-item">
+       <input type='checkbox' ${t.done?'checked':''} onchange='toggleTask(${idx})'>
+       <span><b>[${t.subject}]</b> ${t.text}</span>
+     </label>
+   </div>`;
+ });
+
+ if(todayTasks.length===0){
+   el.innerHTML='今日のタスクはありません。';
+ }
+}
+
+function renderMaterials(){
+ const el=document.getElementById('materials');
+ el.innerHTML='';
+ const today = new Date();
+ today.setHours(0,0,0,0);
+
+ materials.forEach((m,i)=>{
+   const remain=Math.ceil((new Date(m.deadline)-today)/86400000);
+   const p=Math.round((m.done/m.pages)*100)||0;
+   const prefix = m.unit === 'ページ' ? 'P.' : '';
+   const suffix = m.unit === 'ページ' ? '' : m.unit;
+   
+   const currentPosition = m.startRange + m.done - 1;
+   const displayPos = m.done === 0 ? '未着手' : `${prefix}${currentPosition}${suffix}まで完了`;
+
+   el.innerHTML+=`
+   <div class='material'>
+     <b>[${m.subject}]</b> ${m.material}<br>
+     範囲: ${prefix}${m.startRange}～${m.endRange}${suffix} (計 ${m.pages} ${m.unit})<br>
+     Present: ${displayPos} (${p}%)<br>
+     <span class='${remain<0?'overdue':''}'>目標まで: 残り${remain}日 (目標: ${m.deadline})</span><br>
+     
+     <div class="update-group">
+       <input type="number" id="directInput-${i}" placeholder="${m.startRange}～${m.endRange}">
+       <span>${suffix}まで</span>
+       <button onclick="updateDirectProgress(${i})">更新・再分配</button>
+     </div>
+
+     <div style="margin-top:8px">
+       <button class='smallBtn' onclick='addProgress(${i})'>進捗+1日分</button> 
+       <button class='smallBtn' style='background:#ef4444' onclick='deleteMaterial(${i})'>削除</button>
+     </div>
+   </div>`;
+ });
+}
+
+function renderProgress(){
+ const total=tasks.length;
+ const done=tasks.filter(t=>t.done).length;
+ const p=total?Math.round(done/total*100):0;
+ document.getElementById('progressText').textContent=p;
+ document.getElementById('progressBar').style.width=p+'%';
+}
+
+// (以下省略せず全関数そのまま保持)
+function renderExams(){
+ const examArea=document.getElementById('exams');
+ exams.sort((a,b)=>a.date.localeCompare(b.date));
+ const today = new Date();
+ today.setHours(0,0,0,0);
+
+ examArea.innerHTML=exams.map((e, i)=>{
+   const remain=Math.ceil((new Date(e.date)-today)/86400000);
+   return `
+   <div class='exam'>
+     📝 <b>${e.name}</b><br>
+     試験日: ${e.date} (${remain<0 ? '終了' : '残り ' + remain + ' 日'})<br>
+     <button class='smallBtn' style='background:#ef4444; margin-top:4px;' onclick='deleteExam(${i})'>削除</button>
+   </div>`;
+ }).join('');
+}
+
+function renderCalendar(){
+ const cal=document.getElementById('calendar');
+ cal.innerHTML='';
+
+ ['日','月','火','水','木','金','土'].forEach(d=>{
+   cal.innerHTML+=`<div class='day'>${d}</div>`;
+ });
+
+ const year = currentDisplayDate.getFullYear();
+ const month = currentDisplayDate.getMonth();
+
+ document.getElementById('calendarTitle').textContent = `${year}年 ${month + 1}月`;
+
+ const realToday = new Date();
+ const realYear = realToday.getFullYear();
+ const realMonth = realToday.getMonth();
+ const realDay = realToday.getDate();
+
+ const firstDayIndex = new Date(year, month, 1).getDay();
+ const totalDays = new Date(year, month + 1, 0).getDate();
+
+ for(let f=0; f<firstDayIndex; f++){
+   cal.innerHTML += `<div class="cell cell-blank"></div>`;
+ }
+
+ for(let i=1; i<=totalDays; i++){
+   let txt='';
+   const currentCellDateStr = year + '-' + String(month+1).padStart(2,'0') + '-' + String(i).padStart(2,'0');
+
+   tasks.forEach(t=>{
+     if(t.date === currentCellDateStr){
+       const checkMark = t.done ? '✅' : '📘';
+       const simpleText = t.text.replace(t.material + ' ', '');
+       txt += `<div style="font-size:9px; margin-top:2px; text-decoration:${t.done?'line-through':'none'}">${checkMark}${t.material}(${simpleText})</div>`;
+     }
+   });
+
+   const isToday = (year === realYear && month === realMonth && i === realDay) ? 'today-cell' : '';
+
+   cal.innerHTML += `
+   <div class="cell ${isToday}">
+     <strong>${i}</strong>
+     <div style="overflow-y:auto; flex-grow:1">${txt}</div>
+   </div>`;
+ }
+}
+
+function prevMonth(){
+  currentDisplayDate.setMonth(currentDisplayDate.getMonth() - 1);
+  renderCalendar();
+}
+
+function nextMonth(){
+  currentDisplayDate.setMonth(currentDisplayDate.getMonth() + 1);
+  renderCalendar();
+}
+
+function toToday(){
+  currentDisplayDate = new Date();
+  renderCalendar();
+}
+
+function renderAll(){
+ carryOver();
+ renderTasks();
+ renderMaterials();
+ renderProgress();
+ renderExams();
+ renderCalendar();
+}
+
+renderAll();
+</script>
+</body>
+</html>

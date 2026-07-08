@@ -1,0 +1,17 @@
+{
+  "name": "勉強スケジュール管理 Ultimate",
+  "short_name": "学習管理",
+  "description": "自動再分配機能付きスケジュール管理アプリ",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f1f5f9",
+  "theme_color": "#10b981",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2232/2232688.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
